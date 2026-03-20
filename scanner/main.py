@@ -3,9 +3,13 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta
 import time
 import pandas as pd
+import os # 환경 변수를 읽기 위해 추가
 
-# MongoDB 연결
-client = MongoClient('mongodb+srv://admin:admin1234@cluster0.p49t9un.mongodb.net/StockAnalysis?retryWrites=true&w=majority')
+# [보안 적용] GitHub Actions의 Secrets 혹은 로컬 환경 변수에서 URI를 가져옵니다.
+# 환경 변수가 설정되어 있지 않으면 기본 주소를 사용합니다.
+mongo_uri = os.getenv('MONGO_URI', 'mongodb+srv://admin:admin1234@cluster0.p49t9un.mongodb.net/StockAnalysis?retryWrites=true&w=majority')
+
+client = MongoClient(mongo_uri)
 db = client['StockAnalysis']
 collection = db['KneeStocks']
 
@@ -49,31 +53,36 @@ def get_detailed_analysis(code):
 
 def scan_stocks():
     print("🚀 고도화 스캔 시작 (KOSPI 상위 50)...")
-    df_kospi = fdr.StockListing('KOSPI')
-    target_stocks = df_kospi.head(50)
     
-    collection.delete_many({})
+    try:
+        df_kospi = fdr.StockListing('KOSPI')
+        target_stocks = df_kospi.head(50)
+        
+        # 기존 데이터 초기화 전 연결 확인
+        collection.delete_many({})
 
-    for index, row in target_stocks.iterrows():
-        code = row['Code']
-        name = row['Name']
-        analysis = get_detailed_analysis(code)
-        
-        if analysis:
-            stock_data = {
-                "name": name,
-                "code": code,
-                "price": analysis['price'],
-                "position_pct": analysis['position_pct'],
-                "rsi": analysis['rsi'],
-                "disparity": analysis['disparity'],
-                "updatedAt": datetime.now()
-            }
-            collection.insert_one(stock_data)
-            print(f"✅ {name}: 위치 {analysis['position_pct']}% | RSI {analysis['rsi']} | 이격도 {analysis['disparity']}%")
-        
-        time.sleep(0.05)
-    print("🎯 고도화 스캔 완료!")
+        for index, row in target_stocks.iterrows():
+            code = row['Code']
+            name = row['Name']
+            analysis = get_detailed_analysis(code)
+            
+            if analysis:
+                stock_data = {
+                    "name": name,
+                    "code": code,
+                    "price": analysis['price'],
+                    "position_pct": analysis['position_pct'],
+                    "rsi": analysis['rsi'],
+                    "disparity": analysis['disparity'],
+                    "updatedAt": datetime.now()
+                }
+                collection.insert_one(stock_data)
+                print(f"✅ {name}: 위치 {analysis['position_pct']}% | RSI {analysis['rsi']} | 이격도 {analysis['disparity']}%")
+            
+            time.sleep(0.05)
+        print("🎯 고도화 스캔 완료!")
+    except Exception as e:
+        print(f"💥 스캔 중 치명적 오류 발생: {e}")
 
 if __name__ == "__main__":
     scan_stocks()
