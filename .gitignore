@@ -1,0 +1,11 @@
+# server 관련 제외
+server/node_modules/
+server/dist/
+
+# client 관련 제외
+client/node_modules/
+client/dist/
+
+# 파이썬 관련 제외
+**/__pycache__/
+.env
