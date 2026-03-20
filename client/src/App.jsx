@@ -8,7 +8,7 @@ function App() {
   useEffect(() => { fetchStocks(); }, []);
 
   const fetchStocks = () => {
-    axios.get('http://localhost:3001/stocks')
+    axios.get('https://stock-robot.onrender.com/stocks')
       .then(res => {
         // 점수 계산 로직 추가 (낮을수록 좋음: 저평가)
         const scored = res.data.map(s => ({
