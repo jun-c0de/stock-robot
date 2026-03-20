@@ -2,10 +2,8 @@ name: Stock Daily Scanner
 
 on:
   schedule:
-    # 매일 한국 시간 오전 9시(장 시작) 또는 오후 4시(장 마감) 등으로 설정 가능
-    # 아래는 UTC 기준 07:00 (한국 시간 오후 4시)입니다.
-    - cron: "0 7 * * *"
-  workflow_dispatch: # 수동으로 실행하고 싶을 때 버튼 생성
+    - cron: '30 9 * * *' # 한국시간 오후 6시 30분
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
@@ -26,5 +24,4 @@ jobs:
       - name: Run scanner
         run: python scanner/main.py
         env:
-          # MongoDB 주소를 보안상 직접 적지 않고 Secret으로 관리합니다.
           MONGO_URI: ${{ secrets.MONGO_URI }}

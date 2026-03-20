@@ -7,8 +7,11 @@ export class Stock extends Document {
   @Prop() code: string;
   @Prop() price: number;
   @Prop() position_pct: number;
-  @Prop() rsi: number;      // 추가
-  @Prop() disparity: number; // 추가
+  @Prop() rsi: number;
+  @Prop() disparity: number;
+  @Prop() buy_target: number;
+  @Prop() sell_target: number;
+  @Prop() stop_loss: number;
   @Prop() updatedAt: Date;
 }
 
