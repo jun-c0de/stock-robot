@@ -1,8 +1,10 @@
+/* 기본 레이아웃 및 폰트 */
 .container {
   padding: 20px;
   background-color: #f4f7f6;
   min-height: 100vh;
-  font-family: 'Pretendard', sans-serif;
+  font-family: 'Pretendard', -apple-system, sans-serif;
+  color: #2c3e50;
 }
 
 .header {
@@ -11,18 +13,20 @@
 }
 
 .header h1 {
-  color: #2c3e50;
+  font-size: 1.8rem;
   margin-bottom: 15px;
 }
 
+/* 필터 버튼 */
 .filter-buttons button {
-  padding: 10px 18px;
+  padding: 10px 20px;
   margin: 0 5px;
   border: none;
-  border-radius: 20px;
+  border-radius: 25px;
   cursor: pointer;
   font-weight: bold;
-  transition: 0.3s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .filter-buttons button.active {
@@ -31,14 +35,15 @@
 }
 
 .filter-buttons .knee-btn {
-  background: #e67e22;
+  background: linear-gradient(45deg, #e67e22, #f39c12);
   color: white;
 }
 
+/* 테이블 레이아웃 */
 .table-wrapper {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
@@ -49,54 +54,110 @@
 
 .stock-table thead {
   background: #2c3e50;
-  color: white;
+  color: #ecf0f1;
 }
 
 .stock-table th,
 .stock-table td {
-  padding: 15px;
+  padding: 18px 15px;
   border-bottom: 1px solid #f0f0f0;
   text-align: center;
 }
 
+/* 종목 정보 섹션 */
 .stock-info {
   text-align: left !important;
+  min-width: 140px;
+}
+
+.name-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
 }
 
 .stock-name {
-  font-size: 1.1rem;
-  font-weight: bold;
+  font-size: 1.05rem;
+  font-weight: 800;
   color: #2c3e50;
 }
 
-.stock-guide {
-  font-size: 0.75rem;
-  color: #7f8c8d;
-  margin-top: 4px;
+/* 수급 정보 (가장 중요한 가독성 포인트) */
+.investor-row {
+  display: flex;
+  gap: 10px;
+  font-size: 0.85rem;
 }
 
-.stock-guide span.buy {
-  color: #27ae60;
+.plus {
+  color: #ff4d4f;
+  /* 매수 시 강렬한 레드 */
   font-weight: bold;
 }
 
-.stock-guide span.sell {
-  color: #e74c3c;
-  font-weight: bold;
+.neutral {
+  color: #bdc3c7;
+  /* 매도/관망 시 흐린 회색으로 시각 피로 감소 */
+  font-weight: normal;
 }
 
-.stock-guide span.stop {
-  color: #34495e;
-  text-decoration: underline;
+/* 쌍끌이 강조 배지 */
+.badge.double-buy {
+  background: linear-gradient(45deg, #ff4d4f, #ff7875);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(255, 77, 79, 0.3);
 }
 
-.stock-price {
-  font-weight: bold;
+/* 가격 및 가이드 섹션 */
+.stock-price-cell {
+  text-align: center;
+}
+
+.price-val {
+  font-size: 1.15rem;
+  font-weight: 800;
   color: #2980b9;
+  margin-bottom: 4px;
 }
 
-.mobile-only {
-  display: none;
+.mini-stats {
+  font-size: 0.75rem;
+  color: #95a5a6;
+  margin-bottom: 6px;
+}
+
+.price-guide {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.buy-tag {
+  color: #27ae60;
+}
+
+/* 매수가 초록색 */
+.sell-tag {
+  color: #e74c3c;
+}
+
+/* 매도가 빨간색 */
+
+/* 기타 */
+.desktop-only {
+  display: table-cell;
+}
+
+.position-text {
+  font-weight: 600;
+  color: #7f8c8d;
 }
 
 /* 📱 모바일 대응 */
@@ -109,81 +170,22 @@
     display: none;
   }
 
-  .mobile-only {
-    display: block;
-  }
-
   .stock-table th,
   .stock-table td {
-    padding: 12px 8px;
+    padding: 15px 8px;
   }
 
   .stock-name {
     font-size: 0.95rem;
   }
 
-  .stock-guide {
-    font-size: 0.65rem;
-    letter-spacing: -0.5px;
-  }
-
-  .mobile-mini-stats {
-    font-size: 0.7rem;
-    color: #95a5a6;
-    font-weight: normal;
-    margin-top: 2px;
-  }
-
-  /* 수급 정보 스타일 */
-  .name-box {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .badge.double-buy {
-    background: linear-gradient(45deg, #ff4d4f, #ff7875);
-    color: white;
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-weight: bold;
-  }
-
-  .investor-row {
-    font-size: 11px;
-    margin-top: 2px;
-    display: flex;
-    gap: 8px;
-  }
-
-  .plus {
-    color: #f5222d;
-    font-weight: bold;
-  }
-
-  .minus {
-    color: #1890ff;
-  }
-
-  /* 가격 가이드 스타일 */
   .price-val {
-    font-weight: bold;
-    font-size: 15px;
+    font-size: 1rem;
   }
 
   .price-guide {
-    font-size: 11px;
-    margin-top: 2px;
-    display: flex;
-    gap: 6px;
-  }
-
-  .buy-tag {
-    color: #ff4d4f;
-  }
-
-  .sell-tag {
-    color: #1890ff;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.7rem;
   }
 }

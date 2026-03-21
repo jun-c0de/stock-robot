@@ -45,29 +45,41 @@ function App() {
               <th>투자매력</th>
             </tr>
           </thead>
+          // ... (상단 fetch 로직은 동일) ...
+
           <tbody>
             {filtered.map(s => (
               <tr key={s._id}>
                 <td className="stock-info">
                   <div className="name-box">
                     <span className="stock-name">{s.name}</span>
-                    {s.is_double_buy && <span className="badge double-buy">🔥 쌍끌이</span>}
+                    {/* 쌍끌이 매수 시에만 확실한 강조 배지 */}
+                    {s.is_double_buy && <span className="hot-badge">PUMPING 🔥</span>}
                   </div>
                   <div className="investor-row">
-                    <span className={s.frgn_buy > 0 ? 'plus' : 'minus'}>외 {s.frgn_buy > 0 ? '▲' : '▼'}</span>
-                    <span className={s.inst_buy > 0 ? 'plus' : 'minus'}>기 {s.inst_buy > 0 ? '▲' : '▼'}</span>
+                    {/* 매수(>0)일 때만 색상과 화살표를 주고, 아니면 흐리게 처리 */}
+                    <span className={s.frgn_buy > 0 ? 'plus' : 'neutral'}>
+                      외 {s.frgn_buy > 0 ? '▲' : '·'}
+                    </span>
+                    <span className={s.inst_buy > 0 ? 'plus' : 'neutral'}>
+                      기 {s.inst_buy > 0 ? '▲' : '·'}
+                    </span>
                   </div>
                 </td>
-                <td className="stock-price">
+                <td className="stock-price-cell">
                   <div className="price-val">{s.price.toLocaleString()}원</div>
+                  <div className="mini-stats">
+                    {s.position_pct}% / RSI {s.rsi}
+                  </div>
                   <div className="price-guide">
                     <span className="buy-tag">🎯{s.buy_target?.toLocaleString()}</span>
                     <span className="sell-tag">🚀{s.sell_target?.toLocaleString()}</span>
                   </div>
                 </td>
-                <td className="desktop-only">{s.position_pct}%</td>
+                <td className="desktop-only position-text">{s.position_pct}%</td>
                 <td className="stock-score">
-                  {s.score < 35 ? '⭐⭐⭐⭐⭐' : s.score < 55 ? '⭐⭐⭐' : '⭐'}
+                  {/* 별점 기준을 조금 더 엄격하게 조정하여 변별력 강화 */}
+                  {s.score < 30 ? '⭐⭐⭐⭐⭐' : s.score < 45 ? '⭐⭐⭐' : '⭐'}
                 </td>
               </tr>
             ))}
