@@ -2,10 +2,9 @@ name: Stock Daily Scanner
 
 on:
   schedule:
-    - cron: "0 11 * * *" # 한국시간 오후 8시 (데이터 집계 안정성 확보)
-  workflow_dispatch: # 수동 실행 버튼 활성화
+    - cron: "0 11 * * *" # 한국시간 오후 8시
+  workflow_dispatch: # 수동 실행 버튼
 
-# Node.js 20 데프리케이션 경고 해결 및 최신 환경 사용
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -24,9 +23,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # pykrx 라이브러리 버전 갈등을 방지하기 위해 강제 업데이트(-U) 설치
+          # 1. 기초 라이브러리 설치
           pip install pandas numpy pymongo finance-datareader
-          pip install -U pykrx 
+          # 2. pykrx를 특정 안정 버전(1.0.45)으로 고정 설치하여 함수명 변경 이슈 차단
+          pip install pykrx==1.0.45 
 
       - name: Run scanner
         run: python scanner/main.py
