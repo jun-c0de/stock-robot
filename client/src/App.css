@@ -1,4 +1,4 @@
-/* 기본 레이아웃 및 폰트 */
+/* 기본 레이아웃 및 폰트 설정 */
 .container {
   padding: 20px;
   background-color: #f4f7f6;
@@ -17,7 +17,7 @@
   margin-bottom: 15px;
 }
 
-/* 필터 버튼 */
+/* 필터 버튼 스타일 */
 .filter-buttons button {
   padding: 10px 20px;
   margin: 0 5px;
@@ -39,7 +39,7 @@
   color: white;
 }
 
-/* 테이블 레이아웃 */
+/* 테이블 레이아웃 최적화 */
 .table-wrapper {
   background: white;
   border-radius: 16px;
@@ -50,6 +50,8 @@
 .stock-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+  /* 컬럼 너비를 고정하여 깨짐 방지 */
 }
 
 .stock-table thead {
@@ -59,20 +61,23 @@
 
 .stock-table th,
 .stock-table td {
-  padding: 18px 15px;
+  padding: 18px 10px;
   border-bottom: 1px solid #f0f0f0;
   text-align: center;
+  vertical-align: middle;
 }
 
-/* 종목 정보 섹션 */
+/* 1. 종목명 및 수급 섹션 */
 .stock-info {
   text-align: left !important;
-  min-width: 140px;
+  width: 35%;
+  /* 종목명 칸 너비 확보 */
 }
 
 .name-box {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 4px;
 }
@@ -83,7 +88,6 @@
   color: #2c3e50;
 }
 
-/* 수급 정보 (가장 중요한 가독성 포인트) */
 .investor-row {
   display: flex;
   gap: 10px;
@@ -92,17 +96,14 @@
 
 .plus {
   color: #ff4d4f;
-  /* 매수 시 강렬한 레드 */
   font-weight: bold;
 }
 
 .neutral {
   color: #bdc3c7;
-  /* 매도/관망 시 흐린 회색으로 시각 피로 감소 */
   font-weight: normal;
 }
 
-/* 쌍끌이 강조 배지 */
 .badge.double-buy {
   background: linear-gradient(45deg, #ff4d4f, #ff7875);
   color: white;
@@ -110,54 +111,54 @@
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: bold;
-  box-shadow: 0 2px 4px rgba(255, 77, 79, 0.3);
 }
 
-/* 가격 및 가이드 섹션 */
+/* 2. 현재가 및 가이드 섹션 (핵심 수정) */
 .stock-price-cell {
-  text-align: center;
+  width: 45%;
+  /* 가격 정보 칸 너비 넉넉히 확보 */
 }
 
 .price-val {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: #2980b9;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .mini-stats {
   font-size: 0.75rem;
   color: #95a5a6;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .price-guide {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 0.8rem;
   font-weight: 600;
 }
 
 .buy-tag {
-  color: #27ae60;
+  color: #16a085;
 }
 
-/* 매수가 초록색 */
 .sell-tag {
-  color: #e74c3c;
+  color: #d35400;
 }
 
-/* 매도가 빨간색 */
-
-/* 기타 */
-.desktop-only {
-  display: table-cell;
-}
-
-.position-text {
-  font-weight: 600;
+.stop-tag {
   color: #7f8c8d;
+  font-weight: 500;
+}
+
+/* 3. 투자매력 섹션 */
+.stock-score {
+  width: 20%;
+  font-size: 1rem;
 }
 
 /* 📱 모바일 대응 */
@@ -166,17 +167,13 @@
     padding: 10px;
   }
 
-  .desktop-only {
-    display: none;
-  }
-
   .stock-table th,
   .stock-table td {
-    padding: 15px 8px;
+    padding: 12px 5px;
   }
 
   .stock-name {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
 
   .price-val {
@@ -185,14 +182,13 @@
 
   .price-guide {
     flex-direction: column;
+    /* 모바일에서는 가로가 좁으므로 세로 배치 */
     gap: 2px;
     font-size: 0.7rem;
   }
 
-  .stop-tag {
-    color: #34495e;
-    /* 어두운 회색 계열 */
+  .investor-row {
     font-size: 0.75rem;
-    text-decoration: underline;
+    gap: 5px;
   }
 }

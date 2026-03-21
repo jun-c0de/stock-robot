@@ -51,42 +51,37 @@ function App() {
                 <td className="stock-info">
                   <div className="name-box">
                     <span className="stock-name">{s.name}</span>
-                    {s.is_double_buy && <span className="badge double-buy">🔥 쌍끌이</span>}
+                    {s.is_double_buy && <span className="hot-badge">PUMPING 🔥</span>}
                   </div>
                   <div className="investor-row">
-                    {/* 숫자가 0이면 데이터가 없는 것이니 '데이터 없음' 표시 */}
                     <span className={s.frgn_buy > 0 ? 'plus' : 'neutral'}>
-                      외 {s.frgn_buy > 0 ? `▲ ${s.frgn_buy.toLocaleString()}` : '·'}
+                      외 {s.frgn_buy > 0 ? '▲' : '·'}
                     </span>
                     <span className={s.inst_buy > 0 ? 'plus' : 'neutral'}>
-                      기 {s.inst_buy > 0 ? `▲ ${s.inst_buy.toLocaleString()}` : '·'}
+                      기 {s.inst_buy > 0 ? '▲' : '·'}
                     </span>
                   </div>
                 </td>
 
+                {/* --- 여기를 주목하세요! --- */}
                 <td className="stock-price-cell">
                   <div className="price-val">{s.price.toLocaleString()}원</div>
-                  <div className="mini-stats">{s.position_pct}% / RSI {s.rsi}</div>
-                  <div className="price-guide">
-                    <span className="buy-tag">🎯{s.buy_target?.toLocaleString()}</span>
-                    <span className="sell-tag">🚀{s.sell_target?.toLocaleString()}</span>
-                    {/* 손절가 추가 */}
-                    <span className="stop-tag">🛑{s.stop_loss?.toLocaleString()}</span>
-                  </div>
-                </td>
-                <td className="stock-price-cell">
-                  <div className="price-val">{s.price.toLocaleString()}원</div>
+                  {/* 이전에 별도 컬럼이었던 무릎위치와 RSI를 이 칸 안에 배치합니다 */}
                   <div className="mini-stats">
-                    {s.position_pct}% / RSI {s.rsi}
+                    무릎 {s.position_pct}% / RSI {s.rsi}
                   </div>
                   <div className="price-guide">
-                    <span className="buy-tag">🎯{s.buy_target?.toLocaleString()}</span>
-                    <span className="sell-tag">🚀{s.sell_target?.toLocaleString()}</span>
+                    <span className="buy-tag">🎯 {s.buy_target?.toLocaleString()}</span>
+                    <span className="sell-tag">🚀 {s.sell_target?.toLocaleString()}</span>
+                    {/* 손절가도 깔끔하게 추가합니다 */}
+                    <span className="stop-tag">🛑 {s.stop_loss?.toLocaleString()}</span>
                   </div>
                 </td>
-                <td className="desktop-only position-text">{s.position_pct}%</td>
+
+                {/* 🛑 [핵심 수정] 기존에 있던 '무릎위치' 전용 <td>는 삭제합니다! */}
+                {/* <td className="desktop-only position-text">{s.position_pct}%</td>  <- 이 줄을 지우세요 */}
+
                 <td className="stock-score">
-                  {/* 별점 기준을 조금 더 엄격하게 조정하여 변별력 강화 */}
                   {s.score < 30 ? '⭐⭐⭐⭐⭐' : s.score < 45 ? '⭐⭐⭐' : '⭐'}
                 </td>
               </tr>
