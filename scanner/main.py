@@ -84,7 +84,7 @@ def scan_stocks():
                 "updatedAt": datetime.now()
             }
             collection.insert_one(stock_data)
-            print(f"✅ {name} 데이터 업데이트 완료")
+            print(f"✅ {name} 데이터 업데이트 완료!")
         
         time.sleep(0.05)
     print("🎯 모든 데이터 갱신 완료!")
