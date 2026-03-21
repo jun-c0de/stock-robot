@@ -28,9 +28,7 @@ function App() {
         <h1>💎 AI 저평가 탐지기</h1>
         <div className="filter-buttons">
           <button onClick={() => setFilterMode('all')} className={filterMode === 'all' ? 'active' : ''}>전체</button>
-          <button onClick={() => setFilterMode('knee')} className={`knee-btn ${filterMode === 'knee' ? 'active' : ''}`}>
-            🔥 강력 추천
-          </button>
+          <button onClick={() => setFilterMode('knee')} className={`knee-btn ${filterMode === 'knee' ? 'active' : ''}`}>🔥 강력 추천</button>
         </div>
       </header>
 
@@ -60,19 +58,15 @@ function App() {
                     </span>
                   </div>
                 </td>
-
                 <td className="stock-price-cell">
-                  <div className="price-val">{s.price.toLocaleString()}원</div>
-                  <div className="mini-stats">
-                    무릎 {s.position_pct}% / RSI {s.rsi}
-                  </div>
+                  <div className="price-val">{s.price?.toLocaleString()}원</div>
+                  <div className="mini-stats">무릎 {s.position_pct}% / RSI {s.rsi}</div>
                   <div className="price-guide">
                     <span className="buy-tag">🎯 {s.buy_target?.toLocaleString()}</span>
-                    <span className="sell-target">🚀 {s.sell_target?.toLocaleString()}</span>
+                    <span className="sell-tag">🚀 {s.sell_target?.toLocaleString()}</span>
                     <span className="stop-tag">🛑 {s.stop_loss?.toLocaleString()}</span>
                   </div>
                 </td>
-
                 <td className="stock-score">
                   {s.score < 30 ? '⭐⭐⭐⭐⭐' : s.score < 45 ? '⭐⭐⭐' : '⭐'}
                 </td>

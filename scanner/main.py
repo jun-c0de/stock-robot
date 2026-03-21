@@ -13,24 +13,29 @@ db = client['StockAnalysis']
 collection = db['KneeStocks']
 
 def get_investor_analysis(code):
-    """최근 7거래일 기준 수급 분석 (공휴일 대비 10일 확보)"""
+    """최근 거래일 기준 수급 분석 (주말/공휴일 대응 완료)"""
     try:
+        # 종료일은 오늘, 시작일은 10일 전으로 설정하여 주말/공휴일 공백을 메움
         end_date = datetime.now().strftime("%Y%m%d")
-        # 시작일을 10일 전으로 늘려 데이터 누락 방지
         start_date = (datetime.now() - timedelta(days=10)).strftime("%Y%m%d")
         
+        # 기간 내의 일자별 순매수량 데이터 가져오기
         df = stock.get_market_net_purchase_of_equities_by_ticker(start_date, end_date, code)
         
         if df.empty:
+            print(f"⚠️ {code}: 수급 데이터가 비어있음")
             return 0, 0, False
             
-        # 마지막 거래일 데이터 추출
+        # [핵심] iloc[-1]을 사용하여 해당 기간 중 '가장 최근 거래일' 데이터를 추출
         foreign_net = int(df['외국인'].iloc[-1])
         inst_net = int(df['기관합계'].iloc[-1])
+        
+        # 쌍끌이 매수 여부
         is_double_buy = foreign_net > 0 and inst_net > 0
         
         return foreign_net, inst_net, is_double_buy
-    except:
+    except Exception as e:
+        print(f"❌ 수급 분석 오류 ({code}): {e}")
         return 0, 0, False
 
 def get_detailed_analysis(code):
@@ -60,7 +65,7 @@ def get_detailed_analysis(code):
         sell_target = int(min_52w + (max_52w - min_52w) * 0.75)
         stop_loss = int(min_52w * 0.97)
 
-        # 수급 분석 결과 받아오기
+        # 수급 데이터 필드명 동기화 (frgn_buy, inst_buy)
         f_buy, i_buy, d_buy = get_investor_analysis(code)
 
         return {
@@ -76,15 +81,15 @@ def get_detailed_analysis(code):
             "is_double_buy": d_buy
         }
     except Exception as e:
-        print(f"❌ {code} 분석 오류: {e}")
+        print(f"❌ {code} 상세 분석 오류: {e}")
         return None
 
 def scan_stocks():
-    print("🚀 수급 분석 동기화 중 (KOSPI 50)...")
+    print("🚀 실시간 수급 동기화 스캐너 가동...")
     df_kospi = fdr.StockListing('KOSPI')
     target_stocks = df_kospi.head(50)
     
-    collection.delete_many({}) # 초기화
+    collection.delete_many({})
 
     for index, row in target_stocks.iterrows():
         code = row['Code']
@@ -108,10 +113,10 @@ def scan_stocks():
                 "updatedAt": datetime.now()
             }
             collection.insert_one(stock_data)
-            print(f"✅ {name} 수급 데이터 반영 완료")
+            print(f"✅ {name}: 외({analysis['frgn_buy']}) 기({analysis['inst_buy']}) 저장 완료")
         
-        time.sleep(0.1)
-    print("🎯 모든 데이터 갱신 완료!")
+        time.sleep(0.05)
+    print("🎯 주말 데이터 보정 포함 모든 갱신 완료!")
 
 if __name__ == "__main__":
     scan_stocks()
