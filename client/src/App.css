@@ -133,4 +133,57 @@
     font-weight: normal;
     margin-top: 2px;
   }
+
+  /* 수급 정보 스타일 */
+  .name-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .badge.double-buy {
+    background: linear-gradient(45deg, #ff4d4f, #ff7875);
+    color: white;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: bold;
+  }
+
+  .investor-row {
+    font-size: 11px;
+    margin-top: 2px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .plus {
+    color: #f5222d;
+    font-weight: bold;
+  }
+
+  .minus {
+    color: #1890ff;
+  }
+
+  /* 가격 가이드 스타일 */
+  .price-val {
+    font-weight: bold;
+    font-size: 15px;
+  }
+
+  .price-guide {
+    font-size: 11px;
+    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+  }
+
+  .buy-tag {
+    color: #ff4d4f;
+  }
+
+  .sell-tag {
+    color: #1890ff;
+  }
 }

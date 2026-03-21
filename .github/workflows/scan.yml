@@ -2,26 +2,26 @@ name: Stock Daily Scanner
 
 on:
   schedule:
-    - cron: '30 9 * * *' # 한국시간 오후 6시 30분
+    - cron: "30 9 * * *" # 한국시간 오후 6시 30분
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # v3에서 v4로 업데이트
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # v4에서 v5로 업데이트
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
-          pip install pymongo finance-datareader pandas
+          python -m pip install --upgrade pip setuptools wheel
+          pip install numpy
+          pip install pymongo finance-datareader pandas pykrx
 
       - name: Run scanner
         run: python scanner/main.py
