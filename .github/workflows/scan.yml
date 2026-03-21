@@ -3,7 +3,7 @@ name: Stock Daily Scanner
 on:
   schedule:
     - cron: "0 11 * * *" # 한국시간 오후 8시
-  workflow_dispatch: # 수동 실행 버튼 활성화
+  workflow_dispatch: 
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

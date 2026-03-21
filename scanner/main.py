@@ -13,29 +13,25 @@ db = client['StockAnalysis']
 collection = db['KneeStocks']
 
 def get_investor_analysis(code):
-    """최근 거래일 기준 수급 분석 (주말/공휴일 대응 완료)"""
+    """최근 거래일 기준 수급 분석 (함수명 수정 및 주말 대응)"""
     try:
-        # 종료일은 오늘, 시작일은 10일 전으로 설정하여 주말/공휴일 공백을 메움
         end_date = datetime.now().strftime("%Y%m%d")
         start_date = (datetime.now() - timedelta(days=10)).strftime("%Y%m%d")
         
-        # 기간 내의 일자별 순매수량 데이터 가져오기
-        df = stock.get_market_net_purchase_of_equities_by_ticker(start_date, end_date, code)
+        # [수정] 정확한 함수명: get_market_net_purchase_by_ticker
+        df = stock.get_market_net_purchase_by_ticker(start_date, end_date, code)
         
         if df.empty:
-            print(f"⚠️ {code}: 수급 데이터가 비어있음")
             return 0, 0, False
             
-        # [핵심] iloc[-1]을 사용하여 해당 기간 중 '가장 최근 거래일' 데이터를 추출
+        # 가장 최근 거래일(-1) 데이터 추출
         foreign_net = int(df['외국인'].iloc[-1])
         inst_net = int(df['기관합계'].iloc[-1])
-        
-        # 쌍끌이 매수 여부
         is_double_buy = foreign_net > 0 and inst_net > 0
         
         return foreign_net, inst_net, is_double_buy
     except Exception as e:
-        print(f"❌ 수급 분석 오류 ({code}): {e}")
+        print(f"❌ {code} 수급 분석 오류: {e}")
         return 0, 0, False
 
 def get_detailed_analysis(code):
@@ -65,7 +61,6 @@ def get_detailed_analysis(code):
         sell_target = int(min_52w + (max_52w - min_52w) * 0.75)
         stop_loss = int(min_52w * 0.97)
 
-        # 수급 데이터 필드명 동기화 (frgn_buy, inst_buy)
         f_buy, i_buy, d_buy = get_investor_analysis(code)
 
         return {
@@ -89,7 +84,7 @@ def scan_stocks():
     df_kospi = fdr.StockListing('KOSPI')
     target_stocks = df_kospi.head(50)
     
-    collection.delete_many({})
+    collection.delete_many({}) 
 
     for index, row in target_stocks.iterrows():
         code = row['Code']
@@ -116,7 +111,7 @@ def scan_stocks():
             print(f"✅ {name}: 외({analysis['frgn_buy']}) 기({analysis['inst_buy']}) 저장 완료")
         
         time.sleep(0.05)
-    print("🎯 주말 데이터 보정 포함 모든 갱신 완료!")
+    print("🎯 모든 갱신 완료!")
 
 if __name__ == "__main__":
     scan_stocks()
