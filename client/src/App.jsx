@@ -9,7 +9,6 @@ function App() {
   const fetchStocks = () => {
     axios.get('https://stock-robot.onrender.com/stocks')
       .then(res => {
-        // 투자 매력도 점수 계산 (기존 로직 유지)
         const scored = res.data.map(s => ({
           ...s,
           score: (s.position_pct * 0.4) + (s.rsi * 0.4) + (Math.abs(100 - s.disparity) * 0.2)
@@ -39,10 +38,9 @@ function App() {
         <table className="stock-table">
           <thead>
             <tr>
-              <th>종목 / 수급</th>
-              <th>현재가 / 가이드</th>
-              <th className="desktop-only">무릎위치</th>
-              <th>투자매력</th>
+              <th className="th-info">종목 / 수급</th>
+              <th className="th-price">현재가 / 가이드</th>
+              <th className="th-score">투자매력</th>
             </tr>
           </thead>
           <tbody>
@@ -63,23 +61,17 @@ function App() {
                   </div>
                 </td>
 
-                {/* --- 여기를 주목하세요! --- */}
                 <td className="stock-price-cell">
                   <div className="price-val">{s.price.toLocaleString()}원</div>
-                  {/* 이전에 별도 컬럼이었던 무릎위치와 RSI를 이 칸 안에 배치합니다 */}
                   <div className="mini-stats">
                     무릎 {s.position_pct}% / RSI {s.rsi}
                   </div>
                   <div className="price-guide">
                     <span className="buy-tag">🎯 {s.buy_target?.toLocaleString()}</span>
-                    <span className="sell-tag">🚀 {s.sell_target?.toLocaleString()}</span>
-                    {/* 손절가도 깔끔하게 추가합니다 */}
+                    <span className="sell-target">🚀 {s.sell_target?.toLocaleString()}</span>
                     <span className="stop-tag">🛑 {s.stop_loss?.toLocaleString()}</span>
                   </div>
                 </td>
-
-                {/* 🛑 [핵심 수정] 기존에 있던 '무릎위치' 전용 <td>는 삭제합니다! */}
-                {/* <td className="desktop-only position-text">{s.position_pct}%</td>  <- 이 줄을 지우세요 */}
 
                 <td className="stock-score">
                   {s.score < 30 ? '⭐⭐⭐⭐⭐' : s.score < 45 ? '⭐⭐⭐' : '⭐'}
