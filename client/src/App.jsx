@@ -45,25 +45,33 @@ function App() {
               <th>투자매력</th>
             </tr>
           </thead>
-          // ... (상단 fetch 로직은 동일) ...
-
           <tbody>
             {filtered.map(s => (
               <tr key={s._id}>
                 <td className="stock-info">
                   <div className="name-box">
                     <span className="stock-name">{s.name}</span>
-                    {/* 쌍끌이 매수 시에만 확실한 강조 배지 */}
-                    {s.is_double_buy && <span className="hot-badge">PUMPING 🔥</span>}
+                    {s.is_double_buy && <span className="badge double-buy">🔥 쌍끌이</span>}
                   </div>
                   <div className="investor-row">
-                    {/* 매수(>0)일 때만 색상과 화살표를 주고, 아니면 흐리게 처리 */}
+                    {/* 숫자가 0이면 데이터가 없는 것이니 '데이터 없음' 표시 */}
                     <span className={s.frgn_buy > 0 ? 'plus' : 'neutral'}>
-                      외 {s.frgn_buy > 0 ? '▲' : '·'}
+                      외 {s.frgn_buy > 0 ? `▲ ${s.frgn_buy.toLocaleString()}` : '·'}
                     </span>
                     <span className={s.inst_buy > 0 ? 'plus' : 'neutral'}>
-                      기 {s.inst_buy > 0 ? '▲' : '·'}
+                      기 {s.inst_buy > 0 ? `▲ ${s.inst_buy.toLocaleString()}` : '·'}
                     </span>
+                  </div>
+                </td>
+
+                <td className="stock-price-cell">
+                  <div className="price-val">{s.price.toLocaleString()}원</div>
+                  <div className="mini-stats">{s.position_pct}% / RSI {s.rsi}</div>
+                  <div className="price-guide">
+                    <span className="buy-tag">🎯{s.buy_target?.toLocaleString()}</span>
+                    <span className="sell-tag">🚀{s.sell_target?.toLocaleString()}</span>
+                    {/* 손절가 추가 */}
+                    <span className="stop-tag">🛑{s.stop_loss?.toLocaleString()}</span>
                   </div>
                 </td>
                 <td className="stock-price-cell">

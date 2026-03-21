@@ -188,4 +188,11 @@
     gap: 2px;
     font-size: 0.7rem;
   }
+
+  .stop-tag {
+    color: #34495e;
+    /* 어두운 회색 계열 */
+    font-size: 0.75rem;
+    text-decoration: underline;
+  }
 }
