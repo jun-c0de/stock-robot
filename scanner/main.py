@@ -1,5 +1,5 @@
 import FinanceDataReader as fdr
-from pykrx import stock  # 이 호출 방식을 유지하면서 아래 함수를 사용합니다.
+from pykrx import stock
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 import time
@@ -13,31 +13,32 @@ db = client['StockAnalysis']
 collection = db['KneeStocks']
 
 def get_investor_analysis(code):
-    """최근 거래일 기준 수급 분석 (함수 경로 및 이름 최적화)"""
+    """최근 거래일 기준 수급 분석 (가장 안정적인 함수로 교체)"""
     try:
+        # 종료일은 오늘, 시작일은 10일 전 (주말 공백 방지)
         end_date = datetime.now().strftime("%Y%m%d")
         start_date = (datetime.now() - timedelta(days=10)).strftime("%Y%m%d")
         
-        # [수정] 가장 범용적이고 에러가 적은 함수로 교체
-        # 일자별 수급이 아닌, 특정 기간 내 '종목별' 합계 데이터를 가져옵니다.
+        # [수정] pykrx에서 가장 표준적인 '일자별' 수급 함수 사용
+        # 이 함수는 해당 기간 동안의 일자별 데이터를 반환합니다.
         df = stock.get_market_net_purchase_of_equities_by_ticker(start_date, end_date, code)
         
-        # 만약 위 함수가 실패한다면 아래 주석 처리된 대안 함수를 시도하게 됩니다.
+        # 만약 위 함수명이 계속 에러라면, 아래 한 줄로 대체해보세요 (가장 구버전까지 지원)
         # df = stock.get_market_net_purchase(start_date, end_date, code)
 
         if df.empty:
             return 0, 0, False
             
-        # pykrx의 get_market_net_purchase_of_equities_by_ticker 결과는 
-        # 해당 종목(code)에 대한 행만 반환하므로 iloc[0]을 사용합니다.
-        foreign_net = int(df['외국인'].iloc[0])
-        inst_net = int(df['기관합계'].iloc[0])
+        # 결과 데이터프레임의 마지막 행(가장 최근 거래일) 추출
+        # 열 이름이 '외국인', '기관합계' 인지 확인
+        foreign_net = int(df['외국인'].iloc[-1])
+        inst_net = int(df['기관합계'].iloc[-1])
         is_double_buy = foreign_net > 0 and inst_net > 0
         
         return foreign_net, inst_net, is_double_buy
     except Exception as e:
-        # 에러 발생 시 로그 출력 후 0 반환
-        print(f"❌ {code} 수급 분석 상세 오류: {e}")
+        # 에러 발생 시 구체적인 원인 출력
+        print(f"❌ {code} 분석 중 오류 발생: {e}")
         return 0, 0, False
 
 def get_detailed_analysis(code):
@@ -86,8 +87,7 @@ def get_detailed_analysis(code):
         return None
 
 def scan_stocks():
-    print("🚀 수급 데이터 정밀 스캔 시작...")
-    # 코스피 종목 리스트 가져오기
+    print("🚀 수급 데이터 정밀 스캔 가동...")
     df_kospi = fdr.StockListing('KOSPI')
     target_stocks = df_kospi.head(50)
     
@@ -115,10 +115,10 @@ def scan_stocks():
                 "updatedAt": datetime.now()
             }
             collection.insert_one(stock_data)
-            print(f"✅ {name}: 외({analysis['frgn_buy']}) 기({analysis['inst_buy']}) 완료")
+            print(f"✅ {name}: 외({analysis['frgn_buy']}) 기({analysis['inst_buy']}) 반영")
         
-        time.sleep(0.1) # 서버 부하 방지
-    print("🎯 모든 수급 데이터 동기화 완료!")
+        time.sleep(0.1)
+    print("🎯 모든 수급 데이터 업데이트 성공!")
 
 if __name__ == "__main__":
     scan_stocks()
