@@ -5,6 +5,8 @@ from pymongo import MongoClient, ReplaceOne
 from datetime import datetime, timedelta
 import os
 import logging
+import requests
+from io import StringIO
 import pandas as pd
 
 logging.basicConfig(
@@ -68,49 +70,85 @@ def calc_indicators(df_close, df_high, df_low):
         "stop_loss": lo * 0.97,
     }
 
-# ─── 한국 수급 ─────────────────────────────────────────────────────
+# ─── 한국 수급 (NAVER Finance 스크래핑) ───────────────────────────
+
+NAVER_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Referer': 'https://finance.naver.com',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
+}
+
+def _find_net_col(df, keyword):
+    """MultiIndex 또는 단일 컬럼에서 keyword + 합계/순매수 컬럼 찾기."""
+    candidates = []
+    for col in df.columns:
+        col_str = str(col)
+        if keyword in col_str:
+            candidates.append(col)
+    # 합계 우선, 없으면 첫 번째
+    for col in candidates:
+        if '합계' in str(col) or '순매수' in str(col):
+            return col
+    return candidates[0] if candidates else None
 
 def get_kr_investor_data(tickers):
     """
-    종목별 get_market_trading_value_by_investor 로 5종 수급 데이터 취득.
+    NAVER Finance investor.naver 페이지에서 5일 수급 합계 스크래핑.
+    (외국인/기관합계/개인 — 연기금/금융투자는 NAVER 미제공으로 0)
     실패 시 0으로 fallback.
     """
     investor_map = {}
-
-    end_date = datetime.now().strftime("%Y%m%d")
-    start_date = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
     success = 0
 
     for ticker in tickers:
         try:
-            df = stock.get_market_trading_value_by_investor(start_date, end_date, ticker)
-            if df is None or df.empty:
+            url = f'https://finance.naver.com/item/investor.naver?code={ticker}'
+            resp = requests.get(url, headers=NAVER_HEADERS, timeout=10)
+            resp.encoding = 'cp949'
+
+            tables = pd.read_html(StringIO(resp.text), flavor='lxml')
+
+            # 개인/외국인 컬럼이 있는 테이블 선택
+            target = None
+            for t in tables:
+                joined = ' '.join(str(c) for c in t.columns.tolist())
+                if '개인' in joined and '외국인' in joined:
+                    target = t
+                    break
+
+            if target is None:
+                logger.warning('%s: 수급 테이블 없음', ticker)
                 continue
 
-            # 컬럼에서 '순매수' 찾기
-            net_col = next((c for c in df.columns if '순매수' in c), None)
-            if net_col is None:
-                logger.warning('%s: 순매수 컬럼 없음. columns=%s', ticker, list(df.columns))
-                continue
+            # MultiIndex 컬럼 → 문자열로 flatten
+            if isinstance(target.columns, pd.MultiIndex):
+                target.columns = [' '.join(str(x) for x in col if 'Unnamed' not in str(x)).strip()
+                                   for col in target.columns]
 
-            def get_row(keywords):
-                for idx in df.index:
-                    if any(k in str(idx) for k in keywords):
-                        return int(df.loc[idx, net_col])
-                return 0
+            frgn_col  = _find_net_col(target, '외국인')
+            inst_col  = _find_net_col(target, '기관')
+            indiv_col = _find_net_col(target, '개인')
+
+            # 숫자 변환 후 상위 5행 합산
+            def sum_col(col):
+                if col is None:
+                    return 0
+                vals = pd.to_numeric(target[col].head(5), errors='coerce').fillna(0)
+                return int(vals.sum())
 
             investor_map[ticker] = {
-                'frgn_net':       get_row(['외국인']),
-                'inst_net':       get_row(['기관합계', '기관']),
-                'pension_net':    get_row(['연기금']),
-                'fin_invest_net': get_row(['금융투자']),
-                'individual_net': get_row(['개인']),
+                'frgn_net':       sum_col(frgn_col),
+                'inst_net':       sum_col(inst_col),
+                'pension_net':    0,
+                'fin_invest_net': 0,
+                'individual_net': sum_col(indiv_col),
             }
             success += 1
-        except Exception as e:
-            logger.warning('%s 수급 조회 실패: %s', ticker, e)
 
-    logger.info('수급 데이터 완료: %d/%d개', success, len(tickers))
+        except Exception as e:
+            logger.warning('%s NAVER 수급 실패: %s', ticker, e)
+
+    logger.info('NAVER 수급 완료: %d/%d개', success, len(tickers))
     return investor_map
 
 # ─── 한국 스캔 ─────────────────────────────────────────────────────
