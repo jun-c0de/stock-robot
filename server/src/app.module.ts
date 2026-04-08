@@ -5,8 +5,7 @@ import { StocksModule } from './stocks/stocks.module';
 @Module({
   imports: [
     MongooseModule.forRoot(
-      // .net/ 뒤에 StockAnalysis를 추가합니다.
-      'mongodb+srv://admin:admin1234@cluster0.p49t9un.mongodb.net/StockAnalysis?retryWrites=true&w=majority&appName=Cluster0',
+      process.env.MONGODB_URI ?? '',
     ),
     StocksModule,
   ],

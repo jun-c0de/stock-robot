@@ -1,12 +1,18 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { StocksService } from './stocks.service';
 
-@Controller('stocks') // 👈 이 부분이 'stocks'로 정확히 적혀 있나요?
+@Controller('stocks')
 export class StocksController {
   constructor(private readonly stocksService: StocksService) {}
 
-  @Get() // 👈 Get 데코레이터가 붙어 있는지 확인하세요.
-  async findAll() {
-    return await this.stocksService.findAll();
+  @Get()
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.stocksService.findAll(
+      page ? Math.max(1, parseInt(page, 10)) : 1,
+      limit ? Math.min(200, Math.max(1, parseInt(limit, 10))) : 50,
+    );
   }
 }
