@@ -1,7 +1,7 @@
 import FinanceDataReader as fdr
 import yfinance as yf
 from pykrx import stock
-from pymongo import MongoClient
+from pymongo import MongoClient, ReplaceOne
 from datetime import datetime, timedelta
 import os
 import logging
@@ -23,6 +23,14 @@ try:
     db = client['StockAnalysis']
     collection = db['KneeStocks']
     logger.info('MongoDB 연결 성공')
+
+    # 구버전 code 단독 unique 인덱스 제거 (market+code 복합 인덱스로 대체됨)
+    try:
+        collection.drop_index('code_1')
+        logger.info('구버전 code_1 인덱스 제거 완료')
+    except Exception:
+        pass  # 이미 없으면 무시
+
 except Exception as e:
     logger.error('MongoDB 연결 실패: %s', e)
     raise
@@ -207,8 +215,8 @@ def scan_kospi():
         logger.error('KOSPI 분석 결과 없음. DB 업데이트 건너뜀.')
         return
 
-    collection.delete_many({'market': 'KOSPI'})
-    collection.insert_many(results)
+    ops = [ReplaceOne({'market': r['market'], 'code': r['code']}, r, upsert=True) for r in results]
+    collection.bulk_write(ops, ordered=False)
     logger.info('KOSPI 완료: %d개 저장', len(results))
 
 # ─── 미국 스캔 ─────────────────────────────────────────────────────
@@ -263,8 +271,8 @@ def scan_sp500():
         logger.error('S&P500 분석 결과 없음. DB 업데이트 건너뜀.')
         return
 
-    collection.delete_many({'market': 'SP500'})
-    collection.insert_many(results)
+    ops = [ReplaceOne({'market': r['market'], 'code': r['code']}, r, upsert=True) for r in results]
+    collection.bulk_write(ops, ordered=False)
     logger.info('S&P500 완료: %d개 저장', len(results))
 
 # ───────────────────────────────────────────────────────────────────
