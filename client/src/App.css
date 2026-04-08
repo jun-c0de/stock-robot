@@ -10,6 +10,70 @@
   margin-bottom: 25px;
 }
 
+/* 마켓 탭 */
+.market-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.market-tab {
+  padding: 8px 22px;
+  border: 2px solid #2c3e50;
+  border-radius: 25px;
+  background: white;
+  color: #2c3e50;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.market-tab.active {
+  background: #2c3e50;
+  color: white;
+}
+
+/* 수급 배지 */
+.inv-badge {
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+/* 상태 메시지 */
+.status-message {
+  text-align: center;
+  padding: 40px;
+  color: #95a5a6;
+  font-size: 1rem;
+}
+
+.error-message {
+  text-align: center;
+  padding: 24px;
+  color: #c0392b;
+  font-size: 0.95rem;
+}
+
+.retry-btn {
+  margin-left: 12px;
+  padding: 6px 14px;
+  border: 1px solid #c0392b;
+  border-radius: 16px;
+  background: white;
+  color: #c0392b;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.name-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .filter-buttons button {
   padding: 10px 20px;
   margin: 0 5px;
