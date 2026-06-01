@@ -32,3 +32,6 @@ jobs:
         run: python scanner/main.py
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+          KIS_LOOKBACK_DAYS: "5"

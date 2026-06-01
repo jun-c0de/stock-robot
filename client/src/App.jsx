@@ -548,9 +548,23 @@ function App() {
   return (
     <main className="terminal">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">KIS HTS형 주식 로봇</p>
-          <h1>조건검색 수급 대시보드</h1>
+        <div className="hts-brand">
+          <div className="window-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div>
+            <p className="eyebrow">국내 HTS형 조건검색</p>
+            <h1>[0420] 수급/차트 통합 감시</h1>
+          </div>
+        </div>
+        <div className="hts-menu" aria-label="HTS 메뉴">
+          <span>관심종목</span>
+          <span>조건검색</span>
+          <span>수급분석</span>
+          <span>차트</span>
+          <span>검증</span>
         </div>
         <div className="topbar-actions">
           <div className={`connection ${usingSample ? 'sample' : 'live'}`}>
@@ -562,6 +576,29 @@ function App() {
           </button>
         </div>
       </header>
+
+      <section className="hts-tape" aria-label="HTS 상태 요약">
+        <div>
+          <span>시장</span>
+          <strong>{activeMarket?.label}</strong>
+        </div>
+        <div>
+          <span>스캔</span>
+          <strong>{stats.total}종목</strong>
+        </div>
+        <div>
+          <span>후보</span>
+          <strong>{stats.qualityCount}</strong>
+        </div>
+        <div>
+          <span>수급</span>
+          <strong>{stats.supplyDataCount}</strong>
+        </div>
+        <div>
+          <span>갱신</span>
+          <strong>{latest}</strong>
+        </div>
+      </section>
 
       <section className="control-strip" aria-label="시장 및 필터">
         <div className="segmented">
@@ -720,13 +757,13 @@ function App() {
 
       <section className="strategy-grid">
         <div className="strategy-panel">
-          <h2>서버에 붙일 기능</h2>
-          <p>KIS 키를 서버 환경변수에 넣으면 현재 MongoDB 구조를 유지하면서 수급 데이터를 공식 API 기준으로 교체할 수 있습니다.</p>
+          <h2>KIS 수급 수집 상태</h2>
+          <p>KIS_APP_KEY와 KIS_APP_SECRET이 설정되면 공식 투자자매매동향 API로 최근 수급을 DB에 저장합니다.</p>
           <div className="check-list">
-            <span>조건검색 후보 저장</span>
+            <span>종목별 투자자매매동향</span>
             <span>외국인·기관·개인 순매수</span>
-            <span>프로그램 매매 보강</span>
-            <span>1일·3일·7일 성과 추적</span>
+            <span>기금·증권 순매수</span>
+            <span>최근 5거래일 합산</span>
           </div>
         </div>
         <div className="strategy-panel">

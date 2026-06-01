@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import os
 import logging
 import requests
+import time
 from io import StringIO
 import pandas as pd
 
@@ -70,13 +71,121 @@ def calc_indicators(df_close, df_high, df_low):
         "stop_loss": lo * 0.97,
     }
 
-# ─── 한국 수급 (NAVER Finance 스크래핑) ───────────────────────────
+# ─── 한국 수급 (KIS Open API + NAVER fallback) ─────────────────────
 
 NAVER_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://finance.naver.com',
     'Accept-Language': 'ko-KR,ko;q=0.9',
 }
+
+KIS_BASE_URL = os.getenv('KIS_BASE_URL', 'https://openapi.koreainvestment.com:9443')
+KIS_APP_KEY = os.getenv('KIS_APP_KEY')
+KIS_APP_SECRET = os.getenv('KIS_APP_SECRET')
+KIS_LOOKBACK_DAYS = int(os.getenv('KIS_LOOKBACK_DAYS', '5'))
+KIS_REQUEST_DELAY = float(os.getenv('KIS_REQUEST_DELAY', '0.12'))
+
+def parse_int(value):
+    try:
+        if value in (None, ''):
+            return 0
+        return int(float(str(value).replace(',', '').strip()))
+    except Exception:
+        return 0
+
+def get_kis_token():
+    if not KIS_APP_KEY or not KIS_APP_SECRET:
+        raise EnvironmentError('KIS_APP_KEY 또는 KIS_APP_SECRET 환경변수가 없습니다.')
+
+    url = f'{KIS_BASE_URL}/oauth2/tokenP'
+    body = {
+        'grant_type': 'client_credentials',
+        'appkey': KIS_APP_KEY,
+        'appsecret': KIS_APP_SECRET,
+    }
+    resp = requests.post(url, json=body, timeout=15)
+    resp.raise_for_status()
+    payload = resp.json()
+    token = payload.get('access_token')
+    if not token:
+        raise RuntimeError(f'KIS 토큰 발급 실패: {payload}')
+    return token
+
+def get_kis_investor_rows(token, ticker):
+    """
+    KIS 공식 샘플의 종목별 투자자매매동향(일별) API.
+    endpoint: /uapi/domestic-stock/v1/quotations/investor-trade-by-stock-daily
+    tr_id: FHPTJ04160001
+    """
+    url = f'{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/investor-trade-by-stock-daily'
+    headers = {
+        'authorization': f'Bearer {token}',
+        'appkey': KIS_APP_KEY,
+        'appsecret': KIS_APP_SECRET,
+        'tr_id': 'FHPTJ04160001',
+        'custtype': 'P',
+    }
+    params = {
+        'FID_COND_MRKT_DIV_CODE': 'J',
+        'FID_INPUT_ISCD': ticker,
+        'FID_INPUT_DATE_1': datetime.now().strftime('%Y%m%d'),
+        'FID_ORG_ADJ_PRC': '',
+        'FID_ETC_CLS_CODE': '',
+    }
+
+    resp = requests.get(url, headers=headers, params=params, timeout=15)
+    resp.raise_for_status()
+    payload = resp.json()
+    if str(payload.get('rt_cd', '0')) != '0':
+        raise RuntimeError(f"KIS 응답 오류: {payload.get('msg1') or payload}")
+
+    rows = payload.get('output2') or payload.get('output1') or []
+    if isinstance(rows, dict):
+        rows = [rows]
+    return rows[:KIS_LOOKBACK_DAYS]
+
+def get_kis_investor_data(tickers):
+    token = get_kis_token()
+    investor_map = {}
+    success = 0
+
+    for index, ticker in enumerate(tickers, start=1):
+        try:
+            rows = get_kis_investor_rows(token, ticker)
+            inv = {
+                'frgn_net': 0,
+                'inst_net': 0,
+                'pension_net': 0,
+                'fin_invest_net': 0,
+                'individual_net': 0,
+            }
+
+            for row in rows:
+                inv['frgn_net'] += parse_int(row.get('frgn_ntby_qty'))
+                inv['inst_net'] += parse_int(row.get('orgn_ntby_qty'))
+                inv['pension_net'] += parse_int(row.get('fund_ntby_qty'))
+                inv['fin_invest_net'] += parse_int(row.get('scrt_ntby_qty'))
+                inv['individual_net'] += parse_int(row.get('prsn_ntby_qty'))
+
+            investor_map[ticker] = inv
+            success += 1
+            logger.info(
+                'KIS 수급 %s: 외(%d) 기(%d) 연/기금(%d) 금/증권(%d) 개(%d)',
+                ticker,
+                inv['frgn_net'],
+                inv['inst_net'],
+                inv['pension_net'],
+                inv['fin_invest_net'],
+                inv['individual_net'],
+            )
+        except Exception as e:
+            logger.warning('%s KIS 수급 실패: %s', ticker, e)
+
+        if index < len(tickers):
+            time.sleep(KIS_REQUEST_DELAY)
+
+    logger.info('KIS 수급 완료: %d/%d개', success, len(tickers))
+    return investor_map
 
 def _find_net_col(df, keyword):
     """MultiIndex 또는 단일 컬럼에서 keyword + 합계/순매수 컬럼 찾기."""
@@ -91,7 +200,7 @@ def _find_net_col(df, keyword):
             return col
     return candidates[0] if candidates else None
 
-def get_kr_investor_data(tickers):
+def get_naver_investor_data(tickers):
     """
     NAVER Finance investor.naver 페이지에서 5일 수급 합계 스크래핑.
     (외국인/기관합계/개인 — 연기금/금융투자는 NAVER 미제공으로 0)
@@ -150,6 +259,18 @@ def get_kr_investor_data(tickers):
 
     logger.info('NAVER 수급 완료: %d/%d개', success, len(tickers))
     return investor_map
+
+def get_kr_investor_data(tickers):
+    if KIS_APP_KEY and KIS_APP_SECRET:
+        kis_data = get_kis_investor_data(tickers)
+        missing = [ticker for ticker in tickers if ticker not in kis_data]
+        if missing:
+            logger.info('KIS 누락 %d개는 NAVER fallback 시도', len(missing))
+            kis_data.update(get_naver_investor_data(missing))
+        return kis_data
+
+    logger.warning('KIS 키가 없어 NAVER 수급 fallback으로 실행합니다.')
+    return get_naver_investor_data(tickers)
 
 # ─── 한국 스캔 ─────────────────────────────────────────────────────
 

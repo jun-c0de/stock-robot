@@ -32,6 +32,13 @@ MONGODB_DNS_SERVERS=8.8.8.8,1.1.1.1
 ```
 
 `scanner`는 `MONGO_URI` 또는 `MONGODB_URI`를 읽습니다.
+국내 수급은 KIS Open API 키가 있으면 공식 API를 우선 사용하고, 없거나 실패한 종목은 NAVER fallback을 시도합니다.
+
+```bash
+KIS_APP_KEY=...
+KIS_APP_SECRET=...
+KIS_LOOKBACK_DAYS=5
+```
 
 ## 현재 UI 기준
 
