@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { StocksService } from './stocks.service';
 
 @Controller('stocks')
@@ -16,5 +16,18 @@ export class StocksController {
       limit ? Math.min(200, Math.max(1, parseInt(limit, 10))) : 50,
       market,
     );
+  }
+
+  @Get('chart')
+  async getChart(
+    @Query('market') market?: string,
+    @Query('code') code?: string,
+    @Query('range') range?: string,
+  ) {
+    if (!market || !code) {
+      throw new BadRequestException('market and code are required');
+    }
+
+    return this.stocksService.findChart(market, code, range);
   }
 }

@@ -16,6 +16,13 @@ const FILTERS = [
   { key: 'risk', label: '리스크 낮음' },
 ];
 
+const CHART_RANGES = [
+  { key: '1mo', label: '1M' },
+  { key: '3mo', label: '3M' },
+  { key: '6mo', label: '6M' },
+  { key: '1y', label: '1Y' },
+];
+
 const SAMPLE_STOCKS = [
   {
     _id: 'sample-005930',
@@ -146,18 +153,28 @@ function formatFlow(value) {
   return `${sign}${Math.round(n).toLocaleString('ko-KR')}`;
 }
 
-function getTradingViewSymbol(stock) {
-  if (!stock) return 'KRX:005930';
-  if (stock.market === 'KOSPI') {
-    return `KRX:${stock.code}`;
+function formatCompactPrice(value, currency) {
+  const n = safeNumber(value);
+  if (currency === 'USD') {
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  return stock.code;
+  return Math.round(n).toLocaleString('ko-KR');
 }
 
-function getTradingViewUrl(stock) {
-  const symbol = encodeURIComponent(getTradingViewSymbol(stock));
-  const timezone = encodeURIComponent('Asia/Seoul');
-  return `https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=D&theme=light&style=1&timezone=${timezone}&withdateranges=1&hide_side_toolbar=0&allow_symbol_change=1&saveimage=0&studies=[]`;
+function formatVolume(value) {
+  const n = safeNumber(value);
+  if (n >= 100000000) return `${(n / 100000000).toFixed(1)}억`;
+  if (n >= 10000) return `${Math.round(n / 10000).toLocaleString('ko-KR')}만`;
+  return Math.round(n).toLocaleString('ko-KR');
+}
+
+function formatChange(value, currency) {
+  const n = safeNumber(value);
+  const sign = n > 0 ? '+' : '';
+  if (currency === 'USD') {
+    return `${sign}${n.toFixed(2)}`;
+  }
+  return `${sign}${Math.round(n).toLocaleString('ko-KR')}`;
 }
 
 function calcQualityScore(stock) {
@@ -266,6 +283,155 @@ function DataState({ available }) {
   );
 }
 
+function CandleChart({ points, currency }) {
+  if (!points.length) {
+    return <div className="chart-empty">차트 데이터를 불러올 수 없습니다.</div>;
+  }
+
+  const candles = points.slice(-90);
+  const width = 760;
+  const height = 360;
+  const left = 56;
+  const right = 18;
+  const top = 18;
+  const priceHeight = 238;
+  const volumeTop = 280;
+  const volumeHeight = 58;
+  const plotWidth = width - left - right;
+  const lows = candles.map((point) => safeNumber(point.low));
+  const highs = candles.map((point) => safeNumber(point.high));
+  const volumes = candles.map((point) => safeNumber(point.volume));
+  const minPrice = Math.min(...lows);
+  const maxPrice = Math.max(...highs);
+  const pricePadding = Math.max((maxPrice - minPrice) * 0.08, maxPrice * 0.01);
+  const yMin = minPrice - pricePadding;
+  const yMax = maxPrice + pricePadding;
+  const yRange = yMax - yMin || 1;
+  const maxVolume = Math.max(...volumes, 1);
+  const xStep = plotWidth / Math.max(candles.length, 1);
+  const candleWidth = Math.max(3, Math.min(10, xStep * 0.58));
+  const y = (price) => top + ((yMax - price) / yRange) * priceHeight;
+  const volumeY = (volume) => volumeTop + volumeHeight - (volume / maxVolume) * volumeHeight;
+  const grid = Array.from({ length: 5 }, (_, index) => {
+    const ratio = index / 4;
+    const price = yMax - yRange * ratio;
+    return { y: top + priceHeight * ratio, price };
+  });
+
+  return (
+    <svg className="candle-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="일봉 캔들 차트">
+      <rect x="0" y="0" width={width} height={height} className="chart-bg" />
+      {grid.map((line) => (
+        <g key={line.y}>
+          <line x1={left} x2={width - right} y1={line.y} y2={line.y} className="chart-grid" />
+          <text x={8} y={line.y + 4} className="chart-axis">
+            {formatCompactPrice(line.price, currency)}
+          </text>
+        </g>
+      ))}
+      {candles.map((point, index) => {
+        const x = left + index * xStep + xStep / 2;
+        const open = safeNumber(point.open);
+        const close = safeNumber(point.close);
+        const high = safeNumber(point.high);
+        const low = safeNumber(point.low);
+        const rising = close >= open;
+        const bodyTop = y(Math.max(open, close));
+        const bodyHeight = Math.max(2, Math.abs(y(open) - y(close)));
+        const volumeHeightValue = volumeTop + volumeHeight - volumeY(point.volume);
+        return (
+          <g key={`${point.date}-${index}`} className={rising ? 'candle up' : 'candle down'}>
+            <line x1={x} x2={x} y1={y(high)} y2={y(low)} />
+            <rect x={x - candleWidth / 2} y={bodyTop} width={candleWidth} height={bodyHeight} rx="1" />
+            <rect
+              className="volume-bar"
+              x={x - candleWidth / 2}
+              y={volumeY(point.volume)}
+              width={candleWidth}
+              height={Math.max(1, volumeHeightValue)}
+              rx="1"
+            />
+          </g>
+        );
+      })}
+      <line x1={left} x2={width - right} y1={volumeTop - 10} y2={volumeTop - 10} className="chart-divider" />
+      {candles.length > 1 && (
+        <>
+          <text x={left} y={352} className="chart-axis">
+            {candles[0].date.slice(5)}
+          </text>
+          <text x={width - right - 44} y={352} className="chart-axis">
+            {candles[candles.length - 1].date.slice(5)}
+          </text>
+        </>
+      )}
+    </svg>
+  );
+}
+
+function ChartPanel({ stock, chartData, loading, error, range, onRangeChange }) {
+  const points = chartData?.points ?? [];
+  const last = points.at(-1);
+  const previous = points.at(-2);
+  const currency = chartData?.currency ?? stock.currency;
+  const change = last && previous ? safeNumber(last.close) - safeNumber(previous.close) : 0;
+  const changeRate = last && previous && previous.close ? (change / previous.close) * 100 : 0;
+  const tone = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+
+  return (
+    <div className="chart-section hts-chart-panel">
+      <div className="section-title chart-title">
+        <div>
+          <h3>일봉 차트</h3>
+          <span>{chartData?.symbol ?? `${stock.market}:${stock.code}`}</span>
+        </div>
+        <div className="range-tabs">
+          {CHART_RANGES.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={range === item.key ? 'active' : ''}
+              onClick={() => onRangeChange(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="quote-strip">
+        <span>
+          <small>종가</small>
+          <strong>{last ? formatPrice(last.close, currency) : '-'}</strong>
+        </span>
+        <span className={tone}>
+          <small>전일대비</small>
+          <strong>
+            {formatChange(change, currency)} / {changeRate.toFixed(2)}%
+          </strong>
+        </span>
+        <span>
+          <small>고가</small>
+          <strong>{last ? formatPrice(last.high, currency) : '-'}</strong>
+        </span>
+        <span>
+          <small>저가</small>
+          <strong>{last ? formatPrice(last.low, currency) : '-'}</strong>
+        </span>
+        <span>
+          <small>거래량</small>
+          <strong>{last ? formatVolume(last.volume) : '-'}</strong>
+        </span>
+      </div>
+
+      <div className="chart-canvas">
+        {loading ? <div className="chart-empty">차트 로딩 중</div> : <CandleChart points={points} currency={currency} />}
+        {!loading && error && <div className="chart-warning">{error}</div>}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [market, setMarket] = useState('KOSPI');
   const [stocks, setStocks] = useState([]);
@@ -274,6 +440,10 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [usingSample, setUsingSample] = useState(false);
   const [error, setError] = useState('');
+  const [chartRange, setChartRange] = useState('6mo');
+  const [chartData, setChartData] = useState(null);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState('');
 
   const fetchStocks = async (selectedMarket) => {
     setLoading(true);
@@ -319,6 +489,49 @@ function App() {
     if (!filtered.length) return null;
     return filtered.find((stock) => stock.code === selectedCode) ?? filtered[0];
   }, [filtered, selectedCode]);
+
+  useEffect(() => {
+    if (!selected) {
+      setChartData(null);
+      setChartError('');
+      return;
+    }
+
+    let cancelled = false;
+    const fetchChart = async () => {
+      setChartLoading(true);
+      setChartError('');
+      try {
+        const res = await axios.get(`${API_URL}/stocks/chart`, {
+          params: { market: selected.market, code: selected.code, range: chartRange },
+          timeout: 7000,
+        });
+        const points = Array.isArray(res.data?.points) ? res.data.points : [];
+        if (!cancelled) {
+          setChartData({ ...res.data, points });
+          if (!points.length) {
+            setChartError('차트 데이터가 없습니다.');
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setChartData(null);
+          setChartError('차트 API 연결 실패');
+        }
+      } finally {
+        if (!cancelled) {
+          setChartLoading(false);
+        }
+      }
+    };
+
+    fetchChart();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, chartRange]);
 
   const stats = useMemo(() => {
     const total = stocks.length;
@@ -467,19 +680,14 @@ function App() {
                 <Metric label="손익비" value={selected.rr.toFixed(2)} helper="목표수익 / 손절위험" />
               </div>
 
-              <div className="chart-section">
-                <div className="section-title">
-                  <h3>차트</h3>
-                  <span>{getTradingViewSymbol(selected)}</span>
-                </div>
-                <iframe
-                  key={`${selected.market}-${selected.code}`}
-                  className="chart-frame"
-                  title={`${selected.name} chart`}
-                  src={getTradingViewUrl(selected)}
-                  loading="lazy"
-                />
-              </div>
+              <ChartPanel
+                stock={selected}
+                chartData={chartData}
+                loading={chartLoading}
+                error={chartError}
+                range={chartRange}
+                onRangeChange={setChartRange}
+              />
 
               <div className="flow-section">
                 <div className="section-title">
