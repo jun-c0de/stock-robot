@@ -5,8 +5,7 @@ import { StocksModule } from './stocks/stocks.module';
 
 if (process.env.MONGODB_DNS_SERVERS) {
   setServers(
-    process.env.MONGODB_DNS_SERVERS
-      .split(',')
+    process.env.MONGODB_DNS_SERVERS.split(',')
       .map((item) => item.trim())
       .filter(Boolean),
   );
@@ -14,10 +13,9 @@ if (process.env.MONGODB_DNS_SERVERS) {
 
 @Module({
   imports: [
-    MongooseModule.forRoot(
-      process.env.MONGODB_URI ?? '',
-      { dbName: process.env.MONGODB_DB ?? 'StockAnalysis' },
-    ),
+    MongooseModule.forRoot(process.env.MONGODB_URI ?? '', {
+      dbName: process.env.MONGODB_DB ?? 'StockAnalysis',
+    }),
     StocksModule,
   ],
 })
