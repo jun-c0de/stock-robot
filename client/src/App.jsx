@@ -146,6 +146,20 @@ function formatFlow(value) {
   return `${sign}${Math.round(n).toLocaleString('ko-KR')}`;
 }
 
+function getTradingViewSymbol(stock) {
+  if (!stock) return 'KRX:005930';
+  if (stock.market === 'KOSPI') {
+    return `KRX:${stock.code}`;
+  }
+  return stock.code;
+}
+
+function getTradingViewUrl(stock) {
+  const symbol = encodeURIComponent(getTradingViewSymbol(stock));
+  const timezone = encodeURIComponent('Asia/Seoul');
+  return `https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=D&theme=light&style=1&timezone=${timezone}&withdateranges=1&hide_side_toolbar=0&allow_symbol_change=1&saveimage=0&studies=[]`;
+}
+
 function calcQualityScore(stock) {
   const position = safeNumber(stock.position_pct, 50);
   const rsi = safeNumber(stock.rsi, 50);
@@ -173,6 +187,16 @@ function calcSupplyScore(stock) {
   return Math.min(100, score);
 }
 
+function hasSupplyData(stock) {
+  return [
+    stock.frgn_net,
+    stock.inst_net,
+    stock.pension_net,
+    stock.fin_invest_net,
+    stock.individual_net,
+  ].some((value) => safeNumber(value) !== 0) || Boolean(stock.is_double_buy);
+}
+
 function getSignal(stock) {
   const quality = calcQualityScore(stock);
   const supply = calcSupplyScore(stock);
@@ -196,10 +220,12 @@ function normalizeStock(stock) {
   const signal = getSignal(stock);
   const rewardPct = stock.price ? ((safeNumber(stock.sell_target) - safeNumber(stock.price)) / safeNumber(stock.price)) * 100 : 0;
   const riskPct = stock.price ? ((safeNumber(stock.price) - safeNumber(stock.stop_loss)) / safeNumber(stock.price)) * 100 : 0;
+  const supplyAvailable = hasSupplyData(stock);
   return {
     ...stock,
     quality,
     supply,
+    supplyAvailable,
     signal,
     rewardPct,
     riskPct,
@@ -207,13 +233,13 @@ function normalizeStock(stock) {
   };
 }
 
-function FlowBadge({ label, value }) {
+function FlowBadge({ label, value, missing }) {
   const n = safeNumber(value);
   const tone = n > 0 ? 'positive' : n < 0 ? 'negative' : 'flat';
   return (
     <span className={`flow-badge ${tone}`}>
       <span>{label}</span>
-      <strong>{formatFlow(n)}</strong>
+      <strong>{missing ? '미수집' : formatFlow(n)}</strong>
     </span>
   );
 }
@@ -230,6 +256,14 @@ function Metric({ label, value, helper }) {
 
 function SignalPill({ signal }) {
   return <span className={`signal-pill ${signal.tone}`}>{signal.label}</span>;
+}
+
+function DataState({ available }) {
+  return (
+    <span className={`data-state ${available ? 'ready' : 'missing'}`}>
+      {available ? '수급 반영' : '수급 미수집'}
+    </span>
+  );
 }
 
 function App() {
@@ -273,7 +307,7 @@ function App() {
       return stocks.filter((stock) => stock.quality >= 68 || stock.signal.tone === 'buy');
     }
     if (filterMode === 'supply') {
-      return stocks.filter((stock) => stock.supply >= 45);
+      return stocks.filter((stock) => stock.supplyAvailable && stock.supply >= 45);
     }
     if (filterMode === 'risk') {
       return stocks.filter((stock) => stock.riskPct <= 7 && stock.rr >= 1.2);
@@ -289,9 +323,10 @@ function App() {
   const stats = useMemo(() => {
     const total = stocks.length;
     const qualityCount = stocks.filter((stock) => stock.quality >= 68 || stock.signal.tone === 'buy').length;
-    const supplyCount = stocks.filter((stock) => stock.supply >= 45).length;
+    const supplyDataCount = stocks.filter((stock) => stock.supplyAvailable).length;
+    const supplyCount = stocks.filter((stock) => stock.supplyAvailable && stock.supply >= 45).length;
     const avgPosition = total ? stocks.reduce((sum, stock) => sum + safeNumber(stock.position_pct), 0) / total : 0;
-    return { total, qualityCount, supplyCount, avgPosition };
+    return { total, qualityCount, supplyCount, supplyDataCount, avgPosition };
   }, [stocks]);
 
   const activeMarket = MARKETS.find((item) => item.key === market);
@@ -344,11 +379,16 @@ function App() {
       </section>
 
       {error && <div className="notice">{error}</div>}
+      {!error && !loading && market === 'KOSPI' && stats.supplyDataCount === 0 && (
+        <div className="notice muted">
+          가격/조건검색 데이터는 연결됐지만 KIS 투자자 수급 값은 아직 DB에 저장되지 않았습니다. 수집기를 붙이면 수급점수와 수급확인이 채워집니다.
+        </div>
+      )}
 
       <section className="metrics-grid" aria-label="시장 요약">
         <Metric label="스캔 종목" value={`${stats.total}개`} helper="현재 화면 기준" />
         <Metric label="매수 후보" value={`${stats.qualityCount}개`} helper="품질점수 68 이상" />
-        <Metric label="수급 동반" value={`${stats.supplyCount}개`} helper="외국인/기관/개인 역방향" />
+        <Metric label="수급 데이터" value={`${stats.supplyDataCount}개`} helper={`수급 동반 ${stats.supplyCount}개`} />
         <Metric label="평균 위치" value={`${stats.avgPosition.toFixed(1)}%`} helper="52주 박스 내 위치" />
       </section>
 
@@ -392,8 +432,8 @@ function App() {
                   <small>pos {safeNumber(stock.position_pct).toFixed(1)} / RSI {safeNumber(stock.rsi).toFixed(1)}</small>
                 </span>
                 <span className="score-cell">
-                  <strong>{stock.supply}</strong>
-                  <small>{stock.is_double_buy ? '외+기 동반' : '단일 수급'}</small>
+                  <strong>{stock.supplyAvailable ? stock.supply : '-'}</strong>
+                  <small>{stock.supplyAvailable ? (stock.is_double_buy ? '외+기 동반' : '단일 수급') : '수급 미수집'}</small>
                 </span>
                 <span className="guide-cell">
                   <strong>{formatPrice(stock.price, stock.currency)}</strong>
@@ -423,18 +463,35 @@ function App() {
 
               <div className="decision-grid">
                 <Metric label="품질점수" value={selected.quality} helper="저점·RSI·이격도·수급 합성" />
-                <Metric label="수급점수" value={selected.supply} helper="KIS 투자자 흐름" />
+                <Metric label="수급점수" value={selected.supplyAvailable ? selected.supply : '-'} helper={selected.supplyAvailable ? 'KIS 투자자 흐름' : 'DB 수급값 없음'} />
                 <Metric label="손익비" value={selected.rr.toFixed(2)} helper="목표수익 / 손절위험" />
               </div>
 
+              <div className="chart-section">
+                <div className="section-title">
+                  <h3>차트</h3>
+                  <span>{getTradingViewSymbol(selected)}</span>
+                </div>
+                <iframe
+                  key={`${selected.market}-${selected.code}`}
+                  className="chart-frame"
+                  title={`${selected.name} chart`}
+                  src={getTradingViewUrl(selected)}
+                  loading="lazy"
+                />
+              </div>
+
               <div className="flow-section">
-                <h3>KIS 수급 확인</h3>
+                <div className="section-title">
+                  <h3>KIS 수급 확인</h3>
+                  <DataState available={selected.supplyAvailable} />
+                </div>
                 <div className="flow-grid">
-                  <FlowBadge label="외국인" value={selected.frgn_net} />
-                  <FlowBadge label="기관" value={selected.inst_net} />
-                  <FlowBadge label="연기금" value={selected.pension_net} />
-                  <FlowBadge label="금융투자" value={selected.fin_invest_net} />
-                  <FlowBadge label="개인" value={selected.individual_net} />
+                  <FlowBadge label="외국인" value={selected.frgn_net} missing={!selected.supplyAvailable} />
+                  <FlowBadge label="기관" value={selected.inst_net} missing={!selected.supplyAvailable} />
+                  <FlowBadge label="연기금" value={selected.pension_net} missing={!selected.supplyAvailable} />
+                  <FlowBadge label="금융투자" value={selected.fin_invest_net} missing={!selected.supplyAvailable} />
+                  <FlowBadge label="개인" value={selected.individual_net} missing={!selected.supplyAvailable} />
                 </div>
               </div>
 
