@@ -1,141 +1,481 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
 const MARKETS = [
-  { key: 'KOSPI', label: '🇰🇷 KOSPI' },
-  { key: 'SP500', label: '🇺🇸 S&P500' },
+  { key: 'KOSPI', label: '국내주식', sub: 'KIS 수급 기반' },
+  { key: 'SP500', label: '해외주식', sub: '모멘텀 기반' },
 ];
 
-function InvestorBadge({ value, label }) {
-  const active = value > 0;
+const FILTERS = [
+  { key: 'all', label: '전체' },
+  { key: 'quality', label: '매수 후보' },
+  { key: 'supply', label: '수급 동반' },
+  { key: 'risk', label: '리스크 낮음' },
+];
+
+const SAMPLE_STOCKS = [
+  {
+    _id: 'sample-005930',
+    market: 'KOSPI',
+    currency: 'KRW',
+    name: '삼성전자',
+    code: '005930',
+    price: 81500,
+    position_pct: 28,
+    rsi: 37,
+    disparity: 96.2,
+    buy_target: 79800,
+    sell_target: 86600,
+    stop_loss: 77300,
+    frgn_net: 842000,
+    inst_net: 210000,
+    pension_net: 62000,
+    fin_invest_net: -18000,
+    individual_net: -940000,
+    is_double_buy: true,
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    _id: 'sample-000660',
+    market: 'KOSPI',
+    currency: 'KRW',
+    name: 'SK하이닉스',
+    code: '000660',
+    price: 286500,
+    position_pct: 51,
+    rsi: 61,
+    disparity: 109.5,
+    buy_target: 271000,
+    sell_target: 309000,
+    stop_loss: 263000,
+    frgn_net: 125000,
+    inst_net: -38000,
+    pension_net: 21000,
+    fin_invest_net: -14000,
+    individual_net: -92000,
+    is_double_buy: false,
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    _id: 'sample-035420',
+    market: 'KOSPI',
+    currency: 'KRW',
+    name: 'NAVER',
+    code: '035420',
+    price: 191200,
+    position_pct: 22,
+    rsi: 34,
+    disparity: 93.4,
+    buy_target: 185000,
+    sell_target: 207000,
+    stop_loss: 178500,
+    frgn_net: -44000,
+    inst_net: 98000,
+    pension_net: 47000,
+    fin_invest_net: 12000,
+    individual_net: -58000,
+    is_double_buy: false,
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    _id: 'sample-nvda',
+    market: 'SP500',
+    currency: 'USD',
+    name: 'NVIDIA',
+    code: 'NVDA',
+    price: 214.32,
+    position_pct: 63,
+    rsi: 58,
+    disparity: 112.8,
+    buy_target: 203.1,
+    sell_target: 231.5,
+    stop_loss: 196.7,
+    frgn_net: 0,
+    inst_net: 0,
+    pension_net: 0,
+    fin_invest_net: 0,
+    individual_net: 0,
+    is_double_buy: false,
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    _id: 'sample-aapl',
+    market: 'SP500',
+    currency: 'USD',
+    name: 'Apple',
+    code: 'AAPL',
+    price: 197.26,
+    position_pct: 36,
+    rsi: 42,
+    disparity: 98.6,
+    buy_target: 192.4,
+    sell_target: 209.8,
+    stop_loss: 186.5,
+    frgn_net: 0,
+    inst_net: 0,
+    pension_net: 0,
+    fin_invest_net: 0,
+    individual_net: 0,
+    is_double_buy: false,
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+function safeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function formatPrice(price, currency) {
+  const value = safeNumber(price);
+  if (currency === 'USD') {
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return `${Math.round(value).toLocaleString('ko-KR')}원`;
+}
+
+function formatFlow(value) {
+  const n = safeNumber(value);
+  const sign = n > 0 ? '+' : '';
+  if (Math.abs(n) >= 10000) {
+    return `${sign}${Math.round(n / 10000).toLocaleString('ko-KR')}만`;
+  }
+  return `${sign}${Math.round(n).toLocaleString('ko-KR')}`;
+}
+
+function calcQualityScore(stock) {
+  const position = safeNumber(stock.position_pct, 50);
+  const rsi = safeNumber(stock.rsi, 50);
+  const disparity = Math.abs(safeNumber(stock.disparity, 100) - 100);
+  const supply = calcSupplyScore(stock);
+  const lowPosition = Math.max(0, 40 - position) * 1.15;
+  const calmRsi = Math.max(0, 52 - rsi) * 0.75;
+  const trendPenalty = Math.min(disparity * 1.1, 18);
+  return Math.max(0, Math.min(100, Math.round(40 + lowPosition + calmRsi + supply * 0.4 - trendPenalty)));
+}
+
+function calcSupplyScore(stock) {
+  const foreign = safeNumber(stock.frgn_net);
+  const institution = safeNumber(stock.inst_net);
+  const pension = safeNumber(stock.pension_net);
+  const finance = safeNumber(stock.fin_invest_net);
+  const individual = safeNumber(stock.individual_net);
+  let score = 0;
+  if (foreign > 0) score += 22;
+  if (institution > 0) score += 22;
+  if (pension > 0) score += 14;
+  if (finance > 0) score += 8;
+  if (individual < 0 && (foreign > 0 || institution > 0)) score += 14;
+  if (stock.is_double_buy) score += 20;
+  return Math.min(100, score);
+}
+
+function getSignal(stock) {
+  const quality = calcQualityScore(stock);
+  const supply = calcSupplyScore(stock);
+  const position = safeNumber(stock.position_pct, 50);
+  const rsi = safeNumber(stock.rsi, 50);
+  if (quality >= 72 && supply >= 50 && position <= 40) {
+    return { label: '검증 후보', tone: 'buy', text: '조건검색 통과 후 추적' };
+  }
+  if (supply >= 55) {
+    return { label: '수급 관찰', tone: 'watch', text: '외국인/기관 유입 확인' };
+  }
+  if (position <= 35 && rsi <= 40) {
+    return { label: '저점 관찰', tone: 'low', text: '반등 확인 필요' };
+  }
+  return { label: '대기', tone: 'neutral', text: '추가 확인 전 보류' };
+}
+
+function normalizeStock(stock) {
+  const quality = calcQualityScore(stock);
+  const supply = calcSupplyScore(stock);
+  const signal = getSignal(stock);
+  const rewardPct = stock.price ? ((safeNumber(stock.sell_target) - safeNumber(stock.price)) / safeNumber(stock.price)) * 100 : 0;
+  const riskPct = stock.price ? ((safeNumber(stock.price) - safeNumber(stock.stop_loss)) / safeNumber(stock.price)) * 100 : 0;
+  return {
+    ...stock,
+    quality,
+    supply,
+    signal,
+    rewardPct,
+    riskPct,
+    rr: riskPct > 0 ? rewardPct / riskPct : 0,
+  };
+}
+
+function FlowBadge({ label, value }) {
+  const n = safeNumber(value);
+  const tone = n > 0 ? 'positive' : n < 0 ? 'negative' : 'flat';
   return (
-    <span className={active ? 'inv-badge plus' : 'inv-badge neutral'}>
-      {label} {active ? '▲' : '·'}
+    <span className={`flow-badge ${tone}`}>
+      <span>{label}</span>
+      <strong>{formatFlow(n)}</strong>
     </span>
   );
+}
+
+function Metric({ label, value, helper }) {
+  return (
+    <div className="metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {helper && <small>{helper}</small>}
+    </div>
+  );
+}
+
+function SignalPill({ signal }) {
+  return <span className={`signal-pill ${signal.tone}`}>{signal.label}</span>;
 }
 
 function App() {
   const [market, setMarket] = useState('KOSPI');
   const [stocks, setStocks] = useState([]);
-  const [filterMode, setFilterMode] = useState('all');
+  const [filterMode, setFilterMode] = useState('quality');
+  const [selectedCode, setSelectedCode] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [usingSample, setUsingSample] = useState(false);
+  const [error, setError] = useState('');
 
-  const fetchStocks = (selectedMarket) => {
+  const fetchStocks = async (selectedMarket) => {
     setLoading(true);
-    setError(null);
-    axios.get(`${API_URL}/stocks?market=${selectedMarket}&limit=200`)
-      .then(res => {
-        const scored = res.data.data.map(s => ({
-          ...s,
-          score: (s.position_pct * 0.4) + (s.rsi * 0.4) + (Math.abs(100 - s.disparity) * 0.2)
-        })).sort((a, b) => a.score - b.score);
-        setStocks(scored);
-      })
-      .catch(err => {
-        console.error(err);
-        setError('데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
-      })
-      .finally(() => setLoading(false));
+    setError('');
+    try {
+      const res = await axios.get(`${API_URL}/stocks?market=${selectedMarket}&limit=200`, { timeout: 2500 });
+      const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+      if (!rows.length) {
+        throw new Error('empty response');
+      }
+      setStocks(rows.map(normalizeStock).sort((a, b) => b.quality - a.quality));
+      setUsingSample(false);
+    } catch (err) {
+      console.error(err);
+      const fallback = SAMPLE_STOCKS.filter((stock) => stock.market === selectedMarket).map(normalizeStock);
+      setStocks(fallback.sort((a, b) => b.quality - a.quality));
+      setUsingSample(true);
+      setError('API 연결 전이라 샘플 데이터로 화면을 표시합니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    setFilterMode('all');
+    setSelectedCode('');
     fetchStocks(market);
   }, [market]);
 
-  const filtered = useMemo(
-    () => filterMode === 'knee' ? stocks.filter(s => s.position_pct <= 40 && s.rsi <= 40) : stocks,
-    [stocks, filterMode]
-  );
+  const filtered = useMemo(() => {
+    if (filterMode === 'quality') {
+      return stocks.filter((stock) => stock.quality >= 68 || stock.signal.tone === 'buy');
+    }
+    if (filterMode === 'supply') {
+      return stocks.filter((stock) => stock.supply >= 45);
+    }
+    if (filterMode === 'risk') {
+      return stocks.filter((stock) => stock.riskPct <= 7 && stock.rr >= 1.2);
+    }
+    return stocks;
+  }, [stocks, filterMode]);
 
-  const isKospi = market === 'KOSPI';
+  const selected = useMemo(() => {
+    if (!filtered.length) return null;
+    return filtered.find((stock) => stock.code === selectedCode) ?? filtered[0];
+  }, [filtered, selectedCode]);
 
-  const formatPrice = (price, currency) => {
-    if (currency === 'USD') return `$${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    return `${Number(price).toLocaleString()}원`;
-  };
+  const stats = useMemo(() => {
+    const total = stocks.length;
+    const qualityCount = stocks.filter((stock) => stock.quality >= 68 || stock.signal.tone === 'buy').length;
+    const supplyCount = stocks.filter((stock) => stock.supply >= 45).length;
+    const avgPosition = total ? stocks.reduce((sum, stock) => sum + safeNumber(stock.position_pct), 0) / total : 0;
+    return { total, qualityCount, supplyCount, avgPosition };
+  }, [stocks]);
+
+  const activeMarket = MARKETS.find((item) => item.key === market);
+  const latest = selected?.updatedAt ? new Date(selected.updatedAt).toLocaleString('ko-KR') : '확인 필요';
 
   return (
-    <div className="container">
-      <header className="header">
-        <h1>💎 AI 저평가 탐지기</h1>
-        <div className="market-tabs">
-          {MARKETS.map(m => (
-            <button
-              key={m.key}
-              onClick={() => setMarket(m.key)}
-              className={`market-tab ${market === m.key ? 'active' : ''}`}
-            >
-              {m.label}
-            </button>
-          ))}
+    <main className="terminal">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">KIS HTS형 주식 로봇</p>
+          <h1>조건검색 수급 대시보드</h1>
         </div>
-        <div className="filter-buttons">
-          <button onClick={() => setFilterMode('all')} className={filterMode === 'all' ? 'active' : ''}>전체</button>
-          <button onClick={() => setFilterMode('knee')} className={`knee-btn ${filterMode === 'knee' ? 'active' : ''}`}>🔥 강력 추천</button>
+        <div className="topbar-actions">
+          <div className={`connection ${usingSample ? 'sample' : 'live'}`}>
+            <span>{usingSample ? '샘플 모드' : 'API 연결'}</span>
+            <strong>{activeMarket?.label}</strong>
+          </div>
+          <button className="refresh-button" type="button" onClick={() => fetchStocks(market)}>
+            새로고침
+          </button>
         </div>
       </header>
 
-      {loading && <div className="status-message">데이터를 불러오는 중...</div>}
-      {error && (
-        <div className="error-message">
-          {error}
-          <button onClick={() => fetchStocks(market)} className="retry-btn">다시 시도</button>
+      <section className="control-strip" aria-label="시장 및 필터">
+        <div className="segmented">
+          {MARKETS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={market === item.key ? 'active' : ''}
+              onClick={() => setMarket(item.key)}
+            >
+              <span>{item.label}</span>
+              <small>{item.sub}</small>
+            </button>
+          ))}
         </div>
-      )}
+        <div className="filter-bar">
+          {FILTERS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={filterMode === item.key ? 'active' : ''}
+              onClick={() => setFilterMode(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
-      {!loading && !error && (
-        <div className="table-wrapper">
-          <table className="stock-table">
-            <thead>
-              <tr>
-                <th className="th-info">종목{isKospi ? ' / 수급' : ''}</th>
-                <th className="th-price">현재가 / 가이드</th>
-                <th className="th-score">투자매력</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(s => (
-                <tr key={s._id}>
-                  <td className="stock-info">
-                    <div className="name-box">
-                      <span className="stock-name">{s.name}</span>
-                      {s.is_double_buy && <span className="hot-badge">PUMPING 🔥</span>}
-                    </div>
-                    {isKospi && (
-                      <div className="investor-row">
-                        <InvestorBadge value={s.frgn_net} label="외" />
-                        <InvestorBadge value={s.inst_net} label="기" />
-                        <InvestorBadge value={s.pension_net} label="연" />
-                        <InvestorBadge value={s.fin_invest_net} label="금" />
-                        <InvestorBadge value={s.individual_net} label="개" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="stock-price-cell">
-                    <div className="price-val">{formatPrice(s.price, s.currency)}</div>
-                    <div className="mini-stats">무릎 {s.position_pct}% / RSI {s.rsi}</div>
-                    <div className="price-guide">
-                      <span className="buy-tag">🎯 {formatPrice(s.buy_target, s.currency)}</span>
-                      <span className="sell-tag">🚀 {formatPrice(s.sell_target, s.currency)}</span>
-                      <span className="stop-tag">🛑 {formatPrice(s.stop_loss, s.currency)}</span>
-                    </div>
-                  </td>
-                  <td className="stock-score">
-                    {s.score < 30 ? '⭐⭐⭐⭐⭐' : s.score < 45 ? '⭐⭐⭐' : '⭐'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {error && <div className="notice">{error}</div>}
+
+      <section className="metrics-grid" aria-label="시장 요약">
+        <Metric label="스캔 종목" value={`${stats.total}개`} helper="현재 화면 기준" />
+        <Metric label="매수 후보" value={`${stats.qualityCount}개`} helper="품질점수 68 이상" />
+        <Metric label="수급 동반" value={`${stats.supplyCount}개`} helper="외국인/기관/개인 역방향" />
+        <Metric label="평균 위치" value={`${stats.avgPosition.toFixed(1)}%`} helper="52주 박스 내 위치" />
+      </section>
+
+      <section className="workspace">
+        <div className="table-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>조건검색 후보</h2>
+              <p>{loading ? '데이터를 불러오는 중입니다.' : `${filtered.length}개 후보 표시`}</p>
+            </div>
+            <span className="timestamp">{latest}</span>
+          </div>
+
+          <div className="stock-list" role="table" aria-label="조건검색 후보 목록">
+            <div className="stock-list-head" role="row">
+              <span>종목</span>
+              <span>신호</span>
+              <span>품질</span>
+              <span>수급</span>
+              <span>가격 가이드</span>
+            </div>
+            {loading && <div className="empty-state">로딩 중</div>}
+            {!loading && filtered.length === 0 && <div className="empty-state">조건에 맞는 후보가 없습니다.</div>}
+            {!loading && filtered.map((stock) => (
+              <button
+                type="button"
+                key={`${stock.market}-${stock.code}`}
+                className={`stock-row ${selected?.code === stock.code ? 'selected' : ''}`}
+                onClick={() => setSelectedCode(stock.code)}
+              >
+                <span className="stock-identity">
+                  <strong>{stock.name}</strong>
+                  <small>{stock.code}</small>
+                </span>
+                <span>
+                  <SignalPill signal={stock.signal} />
+                  <small className="row-sub">{stock.signal.text}</small>
+                </span>
+                <span className="score-cell">
+                  <strong>{stock.quality}</strong>
+                  <small>pos {safeNumber(stock.position_pct).toFixed(1)} / RSI {safeNumber(stock.rsi).toFixed(1)}</small>
+                </span>
+                <span className="score-cell">
+                  <strong>{stock.supply}</strong>
+                  <small>{stock.is_double_buy ? '외+기 동반' : '단일 수급'}</small>
+                </span>
+                <span className="guide-cell">
+                  <strong>{formatPrice(stock.price, stock.currency)}</strong>
+                  <small>목표 {formatPrice(stock.sell_target, stock.currency)} / 손절 {formatPrice(stock.stop_loss, stock.currency)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-      )}
-    </div>
+
+        <aside className="detail-panel">
+          {selected ? (
+            <>
+              <div className="panel-heading">
+                <div>
+                  <h2>{selected.name}</h2>
+                  <p>{selected.code} · {market}</p>
+                </div>
+                <SignalPill signal={selected.signal} />
+              </div>
+
+              <div className="price-board">
+                <span>현재가</span>
+                <strong>{formatPrice(selected.price, selected.currency)}</strong>
+                <small>목표까지 {selected.rewardPct.toFixed(2)}% / 손절폭 {selected.riskPct.toFixed(2)}%</small>
+              </div>
+
+              <div className="decision-grid">
+                <Metric label="품질점수" value={selected.quality} helper="저점·RSI·이격도·수급 합성" />
+                <Metric label="수급점수" value={selected.supply} helper="KIS 투자자 흐름" />
+                <Metric label="손익비" value={selected.rr.toFixed(2)} helper="목표수익 / 손절위험" />
+              </div>
+
+              <div className="flow-section">
+                <h3>KIS 수급 확인</h3>
+                <div className="flow-grid">
+                  <FlowBadge label="외국인" value={selected.frgn_net} />
+                  <FlowBadge label="기관" value={selected.inst_net} />
+                  <FlowBadge label="연기금" value={selected.pension_net} />
+                  <FlowBadge label="금융투자" value={selected.fin_invest_net} />
+                  <FlowBadge label="개인" value={selected.individual_net} />
+                </div>
+              </div>
+
+              <div className="plan-section">
+                <h3>검증 시나리오</h3>
+                <ul>
+                  <li>다음 거래일 시가 진입 기준 1일, 3일, 7일 성과 저장</li>
+                  <li>목표가, 손절가, 장중 최대상승, 최대하락을 분리 기록</li>
+                  <li>외국인·기관 동반 순매수와 개인 순매도 조합을 별도 태깅</li>
+                </ul>
+              </div>
+            </>
+          ) : (
+            <div className="empty-state">후보를 선택하면 상세 검증 기준을 표시합니다.</div>
+          )}
+        </aside>
+      </section>
+
+      <section className="strategy-grid">
+        <div className="strategy-panel">
+          <h2>서버에 붙일 기능</h2>
+          <p>KIS 키를 서버 환경변수에 넣으면 현재 MongoDB 구조를 유지하면서 수급 데이터를 공식 API 기준으로 교체할 수 있습니다.</p>
+          <div className="check-list">
+            <span>조건검색 후보 저장</span>
+            <span>외국인·기관·개인 순매수</span>
+            <span>프로그램 매매 보강</span>
+            <span>1일·3일·7일 성과 추적</span>
+          </div>
+        </div>
+        <div className="strategy-panel">
+          <h2>수익검증에 쓸 기능</h2>
+          <p>지금 화면의 신호는 매수 버튼이 아니라 후보 등급입니다. 실제 수익 검증은 닫힌 표본이 쌓인 뒤 승률과 손익비로 판단해야 합니다.</p>
+          <div className="check-list">
+            <span>다음날 갭 상승/하락</span>
+            <span>장중 목표 터치율</span>
+            <span>손절 터치율</span>
+            <span>수급 조합별 PF</span>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
 
