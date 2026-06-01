@@ -18,6 +18,21 @@ npm run dev
 
 기본 API 주소는 `http://localhost:3001`입니다. API가 아직 연결되지 않은 경우 UI는 샘플 데이터로 동작합니다.
 
+서버 실행 시 MongoDB는 아래 환경변수를 사용합니다.
+
+```bash
+MONGODB_URI=mongodb+srv://...
+MONGODB_DB=StockAnalysis
+```
+
+로컬에서 `mongodb+srv` DNS 조회가 실패하면 아래 값을 추가합니다.
+
+```bash
+MONGODB_DNS_SERVERS=8.8.8.8,1.1.1.1
+```
+
+`scanner`는 `MONGO_URI` 또는 `MONGODB_URI`를 읽습니다.
+
 ## 현재 UI 기준
 
 - 국내주식/KOSPI: KIS 수급 기반 후보 확인

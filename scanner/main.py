@@ -15,9 +15,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-mongo_uri = os.getenv('MONGO_URI')
+mongo_uri = os.getenv('MONGO_URI') or os.getenv('MONGODB_URI')
 if not mongo_uri:
-    raise EnvironmentError('MONGO_URI 환경변수가 설정되지 않았습니다.')
+    raise EnvironmentError('MONGO_URI 또는 MONGODB_URI 환경변수가 설정되지 않았습니다.')
 
 try:
     client = MongoClient(mongo_uri, serverSelectionTimeoutMS=10000)
