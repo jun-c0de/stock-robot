@@ -279,7 +279,7 @@
 .stock-list-head,
 .stock-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.25fr) minmax(130px, 0.85fr) minmax(110px, 0.65fr) minmax(110px, 0.65fr) minmax(230px, 1.35fr);
+  grid-template-columns: minmax(130px, 1.15fr) minmax(92px, 0.8fr) minmax(74px, 0.55fr) minmax(74px, 0.55fr) minmax(130px, 1.05fr);
   gap: 10px;
   align-items: center;
 }
@@ -304,6 +304,11 @@
   text-align: left;
 }
 
+.stock-row > span,
+.stock-list-head > span {
+  min-width: 0;
+}
+
 .stock-row.selected {
   background: #f4f8ff;
   box-shadow: inset 4px 0 0 #1f5eff;
@@ -317,6 +322,17 @@
 .guide-cell small,
 .row-sub {
   display: block;
+}
+
+.stock-identity strong,
+.stock-identity small,
+.score-cell small,
+.guide-cell strong,
+.guide-cell small,
+.row-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stock-identity strong {
